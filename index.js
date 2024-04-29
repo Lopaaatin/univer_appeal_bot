@@ -43,7 +43,7 @@ bot.command('start', async (ctx) => {
 bot.command('bot_link', async (ctx) => {
     const inlineKeyboard2 = new InlineKeyboard().url('Приступить', 'http://t.me/univer_appeal_bot?start=start');
 
-    await ctx.reply('Здесь вы можете отправить обращение в правление. \n \n Нажмите "Приступить", когда будете готовы.', {
+    await ctx.reply('Вы можете отправить обращение в правление через электронного секретаря. \n \nПросто нажмите "Приступить", когда будете готовы.', {
         reply_markup: inlineKeyboard2
     });
 });
