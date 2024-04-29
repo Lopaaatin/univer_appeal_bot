@@ -175,7 +175,6 @@ bot.on('message', async (ctx) => {
     else if ((govChatIdArr.includes(userChatId))&&
     (ctx.update.message.reply_to_message.from.id === 6949227372)&&
     (ctx.update.message.reply_to_message.forward_origin.sender_user.id)) {
-        console.log(ctx.update.message.reply_to_message);
         await bot.api.sendMessage(ctx.update.message.reply_to_message.forward_origin.sender_user.id, 'Доброго времени суток. \n \nВам отправлен официальный ответ на ранее оставленное обращение.\n \nМожете ознакомиться с ним ниже');
         await ctx.forwardMessage(ctx.update.message.reply_to_message.forward_origin.sender_user.id);
     } 
