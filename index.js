@@ -123,49 +123,49 @@ bot.on('message', async (ctx) => {
 
     let userChatId = ctx.update.message.chat.id;
 
-    if (chatsThemes[ctx.update.message.from.id] === 'water') {
+    if ((chatsThemes[ctx.update.message.from.id] === 'water')&&(!govChatIdArr.includes(userChatId))) {
         await ctx.forwardMessage(-4145453133);
         await ctx.forwardMessage(-1001801837649);
         chatsThemes[ctx.update.message.from.id] = 0;
         await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
     } 
 
-    else if (chatsThemes[ctx.update.message.from.id] === 'electricity') {
+    else if ((chatsThemes[ctx.update.message.from.id] === 'electricity')&&(!govChatIdArr.includes(userChatId))) {
         await ctx.forwardMessage(-4168599904);
         await ctx.forwardMessage(-1001801837649);
         chatsThemes[ctx.update.message.from.id] = 0;
         await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
     }
 
-    else if (chatsThemes[ctx.update.message.from.id] === 'roads') {
+    else if ((chatsThemes[ctx.update.message.from.id] === 'roads')&&(!govChatIdArr.includes(userChatId))) {
         await ctx.forwardMessage(-4187356699);
         await ctx.forwardMessage(-1001801837649);
         chatsThemes[ctx.update.message.from.id] = 0;
         await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
     }
 
-    else if (chatsThemes[ctx.update.message.from.id] === 'gas') {
+    else if ((chatsThemes[ctx.update.message.from.id] === 'gas')&&(!govChatIdArr.includes(userChatId))) {
         await ctx.forwardMessage(-4101563856);
         await ctx.forwardMessage(-1001801837649);
         chatsThemes[ctx.update.message.from.id] = 0;
         await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
     }
 
-    else if (chatsThemes[ctx.update.message.from.id] === 'payment') {
+    else if ((chatsThemes[ctx.update.message.from.id] === 'payment')&&(!govChatIdArr.includes(userChatId))) {
         await ctx.forwardMessage(-4108240137);
         await ctx.forwardMessage(-1001801837649);
         chatsThemes[ctx.update.message.from.id] = 0;
         await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
     }
 
-    else if (chatsThemes[ctx.update.message.from.id] === 'other') {
+    else if ((chatsThemes[ctx.update.message.from.id] === 'other')&&(!govChatIdArr.includes(userChatId))) {
         await ctx.forwardMessage(-4118911246);
         await ctx.forwardMessage(-1001801837649);
         chatsThemes[ctx.update.message.from.id] = 0;
         await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
     }
 
-    else if (chatsThemes[ctx.update.message.from.id] === 'topresident') {
+    else if ((chatsThemes[ctx.update.message.from.id] === 'topresident')&&(!govChatIdArr.includes(userChatId))) {
         await ctx.forwardMessage(-4136291809);
         await ctx.forwardMessage(-1001801837649);
         chatsThemes[ctx.update.message.from.id] = 0;
