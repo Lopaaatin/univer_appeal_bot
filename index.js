@@ -4,7 +4,70 @@ const { hydrate } = require('@grammyjs/hydrate');
 
 let chatsThemes = {};
 
-const govChatIdArr = [-4145453133, -4168599904, -4187356699, -4101563856, -4108240137, -4118911246, -4136291809]; // Массив с айдишниками чатов правления для игнорирования в них некоторых функций, вроде start и перенапраления сообщений
+const govChatIdArr = [-4145453133, -4168599904, -4187356699, -4101563856, -4108240137, -4118911246, -4136291809, -4753833428, -1001468988358_896, -1001468988358]; // Массив с айдишниками чатов правления для игнорирования в них некоторых функций, вроде start и перенапраления сообщений
+
+const themesDatas = [
+    {
+        name: 'water',
+        buttonName: 'Вода',
+        targetChatId: -4145453133
+    },
+
+    {
+        name: 'electricity',
+        buttonName: 'Электричество',
+        targetChatId: -4168599904
+    },
+
+    {
+        name: 'roads',
+        buttonName: 'Дороги',
+        targetChatId: -4187356699
+    },
+
+    {
+        name: 'gas',
+        buttonName: 'Газ',
+        targetChatId: -4101563856
+    },
+
+    {
+        name: 'payment',
+        buttonName: 'Оплата взносов',
+        targetChatId: -4108240137
+    },
+
+    {
+        name: 'other',
+        buttonName: 'Другой вопрос',
+        targetChatId: -4118911246
+    },
+
+    {
+        name: 'riders',
+        buttonName: 'Попутчики',
+        targetChatId: -1001468988358_896
+    },
+
+    {
+        name: 'meeting',
+        buttonName: 'К собранию',
+        targetChatId: -4753833428
+    },
+
+    {
+        name: 'topresident',
+        buttonName: 'Председателю',
+        targetChatId: -4136291809
+    },
+
+    {
+        name: 'logs',
+        buttonName: '',
+        targetChatId: -1001801837649
+    }
+
+];
 
 const bot = new Bot(process.env.BOT_API_KEY);
 
@@ -18,10 +81,22 @@ const themeKeyboard = new InlineKeyboard() // Вводим значения дл
     .text('Газ', 'gas').row()
     .text('Оплата взносов','payment')
     .text('Другой вопрос', 'other').row()
-    .text('Председателю', 'topresident');
+    .text('Председателю', 'topresident')
+    .text('К собранию', 'meeting').row()
+    // .text('Попутчики','riders');
+
+    // for (let i = 0; i < themesDatas.length; i++) {
+    //     if (i % 2 === 0) {
+    //         return .text(themesDatas[i].buttonName, themesDatas[i].name)
+    //     } else {
+    //         return .text(themesDatas[i].buttonName, themesDatas[i].name).row()
+    //     }
+    // }
 
 const themeKeyboardBack = new InlineKeyboard()
 .text('⬅️  Вернуться к списку тем', 'back')
+
+
 
 // --------------- Команда запуска приема обращения
 
@@ -43,7 +118,7 @@ bot.command('start', async (ctx) => {
 bot.command('bot_link', async (ctx) => {
     const inlineKeyboard2 = new InlineKeyboard().url('Приступить', 'http://t.me/univer_appeal_bot?start=start');
 
-    await ctx.reply('Вы можете отправить обращение в правление через электронного секретаря. \n \nПросто нажмите "Приступить", когда будете готовы.', {
+    await ctx.reply('--\nВы можете отправить обращение в правление через электронного секретаря.\n \nПросто нажмите "Приступить", когда будете готовы.', {
         reply_markup: inlineKeyboard2
     });
 });
@@ -105,6 +180,22 @@ bot.callbackQuery('topresident', async (ctx) => {
     });
     await ctx.answerCallbackQuery();
     chatsThemes[ctx.update.callback_query.from.id] = 'topresident';
+});
+
+bot.callbackQuery('meeting', async (ctx) => {
+    await ctx.callbackQuery.message.editText('✅  Вы выбрали тему обращения "К собранию".\n \nПожалуйста, отправьте обращение следующим сообщением. Начните его с вашей фамилии, имени, отчества и номера участка.\n \n❗️  Важно: обращение должно быть отправлено одним сообщением. Допускается прикреплять фото и видео.', {
+        reply_markup: themeKeyboardBack
+    });
+    await ctx.answerCallbackQuery();
+    chatsThemes[ctx.update.callback_query.from.id] = 'meeting';
+});
+
+bot.callbackQuery('riders', async (ctx) => {
+    await ctx.callbackQuery.message.editText('✅  Вы выбрали тему обращения "Попутчики".\n \nПожалуйста, отправьте обращение следующим сообщением по форме:\n \n1. Направление (откуда и куда)\n \n2. Количество человек\n \n3. Время желаемого отъезда\n \n❗️  Важно: обращение должно быть отправлено одним сообщением.', {
+        reply_markup: themeKeyboardBack
+    });
+    await ctx.answerCallbackQuery();
+    chatsThemes[ctx.update.callback_query.from.id] = 'riders';
 });
 
 // ---------------------- Кнопка назад
@@ -170,6 +261,20 @@ bot.on('message', async (ctx) => {
         await ctx.forwardMessage(-1001801837649);
         chatsThemes[ctx.update.message.from.id] = 0;
         await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
+    } 
+
+    else if ((chatsThemes[ctx.update.message.from.id] === 'meeting')&&(!govChatIdArr.includes(userChatId))) {
+        await ctx.forwardMessage(-4753833428);
+        await ctx.forwardMessage(-1001801837649);
+        chatsThemes[ctx.update.message.from.id] = 0;
+        await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
+    } 
+
+    else if ((chatsThemes[ctx.update.message.from.id] === 'riders')&&(!govChatIdArr.includes(userChatId))) {
+        await ctx.forwardMessage(-1001468988358896_896); // Пересылка в подчаты не работает, только в корневой
+        await ctx.forwardMessage(-1001801837649);
+        chatsThemes[ctx.update.message.from.id] = 0;
+        await ctx.reply('Ваше обращение перенаправлено в чат "Попутчики".\n \nСпасибо, что доверили это мне 😊');
     } 
     
     else if ((govChatIdArr.includes(userChatId))&&
