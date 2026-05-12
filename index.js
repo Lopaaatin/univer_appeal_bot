@@ -4,6 +4,12 @@ const { hydrate } = require('@grammyjs/hydrate');
 
 let chatsThemes = {};
 
+// Буфер для медиа-групп (альбомов) с динамическим ожиданием
+const mediaGroupBuffer = {};
+
+// Хранилище: message_id отправленного в чат правления сообщения -> userId отправителя
+const sentMessageToUser = {};
+
 const govChatIdArr = [-4145453133, -4168599904, -4187356699, -4101563856, -4108240137, -4118911246, -4136291809, -4753833428, -1001468988358_896, -1001468988358]; // Массив с айдишниками чатов правления для игнорирования в них некоторых функций, вроде start и перенапраления сообщений
 
 const themesDatas = [
@@ -213,84 +219,171 @@ bot.callbackQuery('back', async (ctx) => {
 bot.on('message', async (ctx) => {
 
     let userChatId = ctx.update.message.chat.id;
+    const userId = ctx.update.message.from.id;
+    const mediaGroupId = ctx.msg.media_group_id;
 
-    if ((chatsThemes[ctx.update.message.from.id] === 'water')&&(!govChatIdArr.includes(userChatId))) {
-        await ctx.forwardMessage(-4145453133);
-        await ctx.forwardMessage(-1001801837649);
-        chatsThemes[ctx.update.message.from.id] = 0;
-        await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
-    } 
+    // Функция для получения целевого чата по теме
+    const getTargetChatId = (theme) => {
+        const themeData = themesDatas.find(t => t.name === theme);
+        return themeData ? themeData.targetChatId : null;
+    };
 
-    else if ((chatsThemes[ctx.update.message.from.id] === 'electricity')&&(!govChatIdArr.includes(userChatId))) {
-        await ctx.forwardMessage(-4168599904);
-        await ctx.forwardMessage(-1001801837649);
-        chatsThemes[ctx.update.message.from.id] = 0;
-        await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
+    // Функция пересылки одного сообщения (не группа) в целевой чат и лог-канал
+    const forwardSingleMessage = async (message, targetChatId, logsChatId, originalUserId) => {
+        try {
+            // Пересылаем в чат правления и запоминаем ID отправленного сообщения
+            const sentInTarget = await ctx.api.forwardMessage(targetChatId, message.chat.id, message.message_id);
+            sentMessageToUser[sentInTarget.message_id] = originalUserId;
+            
+            // Пересылаем в лог-канал
+            const sentInLogs = await ctx.api.forwardMessage(logsChatId, message.chat.id, message.message_id);
+            sentMessageToUser[sentInLogs.message_id] = originalUserId;
+        } catch (e) {
+            console.error('Ошибка пересылки:', e);
+        }
+    };
+
+    // Функция отправки альбома (медиа-группы) в целевой чат и лог-канал
+    const sendMediaGroupToChats = async (mediaGroupArray, targetChatId, logsChatId, originalUserId) => {
+        try {
+            // Отправляем в целевой чат и запоминаем все message_id
+            const sentTarget = await ctx.api.sendMediaGroup(targetChatId, mediaGroupArray);
+            for (const msg of sentTarget) {
+                sentMessageToUser[msg.message_id] = originalUserId;
+            }
+            
+            // Отправляем в лог-канал
+            const sentLogs = await ctx.api.sendMediaGroup(logsChatId, mediaGroupArray);
+            for (const msg of sentLogs) {
+                sentMessageToUser[msg.message_id] = originalUserId;
+            }
+        } catch (e) {
+            console.error('Ошибка отправки медиа-группы:', e);
+        }
+    };
+
+    // --- Обработка ответов из чатов правления (универсальная логика) ---
+    if (govChatIdArr.includes(userChatId) && ctx.update.message.reply_to_message) {
+        const repliedMsgId = ctx.update.message.reply_to_message.message_id;
+        const originalUserId = sentMessageToUser[repliedMsgId];
+        
+        if (originalUserId) {
+            // Отправляем пользователю уведомление
+            await bot.api.sendMessage(originalUserId, 'Доброго времени суток. \n \nВам отправлен официальный ответ на ранее оставленное обращение.\n \nМожете ознакомиться с ним ниже');
+            // Пересылаем ответное сообщение пользователю
+            await ctx.forwardMessage(originalUserId);
+        }
+        return;
     }
 
-    else if ((chatsThemes[ctx.update.message.from.id] === 'roads')&&(!govChatIdArr.includes(userChatId))) {
-        await ctx.forwardMessage(-4187356699);
-        await ctx.forwardMessage(-1001801837649);
-        chatsThemes[ctx.update.message.from.id] = 0;
-        await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
+    // Если сообщение из чата правления, но не ответ на обращение – игнорируем
+    if (govChatIdArr.includes(userChatId)) {
+        return;
     }
 
-    else if ((chatsThemes[ctx.update.message.from.id] === 'gas')&&(!govChatIdArr.includes(userChatId))) {
-        await ctx.forwardMessage(-4101563856);
-        await ctx.forwardMessage(-1001801837649);
-        chatsThemes[ctx.update.message.from.id] = 0;
-        await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
+    const currentTheme = chatsThemes[userId];
+
+    if (!currentTheme || currentTheme === '0') {
+        await ctx.reply('Извините, но вы не указали тему обращения. Давайте начнем сначала. Нажмите /start');
+        return;
     }
 
-    else if ((chatsThemes[ctx.update.message.from.id] === 'payment')&&(!govChatIdArr.includes(userChatId))) {
-        await ctx.forwardMessage(-4108240137);
-        await ctx.forwardMessage(-1001801837649);
-        chatsThemes[ctx.update.message.from.id] = 0;
-        await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
+    const targetChatId = getTargetChatId(currentTheme);
+    const logsChatId = -1001801837649; // канал с логами
+
+    if (!targetChatId) {
+        console.error(`Не найден целевой чат для темы ${currentTheme}`);
+        await ctx.reply('Произошла ошибка: тема не распознана. Пожалуйста, начните заново с /start');
+        chatsThemes[userId] = '0';
+        return;
     }
 
-    else if ((chatsThemes[ctx.update.message.from.id] === 'other')&&(!govChatIdArr.includes(userChatId))) {
-        await ctx.forwardMessage(-4118911246);
-        await ctx.forwardMessage(-1001801837649);
-        chatsThemes[ctx.update.message.from.id] = 0;
-        await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
+    // --- Обработка медиа-групп (альбомов) с динамическим ожиданием ---
+    if (mediaGroupId) {
+        const bufferKey = `${mediaGroupId}_${userId}`;
+
+        if (!mediaGroupBuffer[bufferKey]) {
+            mediaGroupBuffer[bufferKey] = {
+                messages: [],
+                theme: currentTheme,
+                timeout: null
+            };
+        }
+
+        const buffer = mediaGroupBuffer[bufferKey];
+        buffer.messages.push(ctx.msg);
+
+        if (buffer.timeout) clearTimeout(buffer.timeout);
+
+        // Динамическое ожидание: после последнего сообщения ждём 2 секунды
+        buffer.timeout = setTimeout(async () => {
+            const messages = buffer.messages;
+            // Сортируем сообщения по порядку (Telegram не гарантирует, но обычно приходят в правильном порядке)
+            messages.sort((a, b) => a.message_id - b.message_id);
+
+            // Преобразуем сообщения в формат InputMedia для sendMediaGroup
+            const inputMediaArray = [];
+            let caption = null;
+            let captionEntities = null;
+
+            for (let i = 0; i < messages.length; i++) {
+                const msg = messages[i];
+                let mediaType = null;
+                let fileId = null;
+
+                // Определяем тип медиа и получаем file_id
+                if (msg.photo) {
+                    const photo = msg.photo[msg.photo.length - 1];
+                    fileId = photo.file_id;
+                    mediaType = 'photo';
+                } else if (msg.video) {
+                    fileId = msg.video.file_id;
+                    mediaType = 'video';
+                } else {
+                    // Неподдерживаемый тип – пересылаем как обычное сообщение
+                    await forwardSingleMessage(msg, targetChatId, logsChatId, userId);
+                    continue;
+                }
+
+                if (i === 0) {
+                    caption = msg.caption || '';
+                    captionEntities = msg.caption_entities;
+                }
+
+                let inputMedia;
+                if (mediaType === 'photo') {
+                    inputMedia = { type: 'photo', media: fileId };
+                } else {
+                    inputMedia = { type: 'video', media: fileId };
+                }
+
+                if (i === 0 && caption) {
+                    inputMedia.caption = caption;
+                    if (captionEntities) {
+                        inputMedia.caption_entities = captionEntities;
+                    }
+                }
+
+                inputMediaArray.push(inputMedia);
+            }
+
+            if (inputMediaArray.length > 0) {
+                await sendMediaGroupToChats(inputMediaArray, targetChatId, logsChatId, userId);
+            }
+
+            await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
+            chatsThemes[userId] = '0';
+            delete mediaGroupBuffer[bufferKey];
+        }, 2000);
+
+        return;
     }
 
-    else if ((chatsThemes[ctx.update.message.from.id] === 'topresident')&&(!govChatIdArr.includes(userChatId))) {
-        await ctx.forwardMessage(-4136291809);
-        await ctx.forwardMessage(-1001801837649);
-        chatsThemes[ctx.update.message.from.id] = 0;
-        await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
-    } 
-
-    else if ((chatsThemes[ctx.update.message.from.id] === 'meeting')&&(!govChatIdArr.includes(userChatId))) {
-        await ctx.forwardMessage(-4753833428);
-        await ctx.forwardMessage(-1001801837649);
-        chatsThemes[ctx.update.message.from.id] = 0;
-        await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
-    } 
-
-    else if ((chatsThemes[ctx.update.message.from.id] === 'riders')&&(!govChatIdArr.includes(userChatId))) {
-        await ctx.forwardMessage(-1001468988358896_896); // Пересылка в подчаты не работает, только в корневой
-        await ctx.forwardMessage(-1001801837649);
-        chatsThemes[ctx.update.message.from.id] = 0;
-        await ctx.reply('Ваше обращение перенаправлено в чат "Попутчики".\n \nСпасибо, что доверили это мне 😊');
-    } 
-    
-    else if ((govChatIdArr.includes(userChatId))&&
-    (ctx.update.message.reply_to_message.from.id === 6949227372)&&
-    (ctx.update.message.reply_to_message.forward_origin.sender_user.id)) {
-        await bot.api.sendMessage(ctx.update.message.reply_to_message.forward_origin.sender_user.id, 'Доброго времени суток. \n \nВам отправлен официальный ответ на ранее оставленное обращение.\n \nМожете ознакомиться с ним ниже');
-        await ctx.forwardMessage(ctx.update.message.reply_to_message.forward_origin.sender_user.id);
-    } 
-
-    else if (govChatIdArr.includes(userChatId)) {  
-    } 
-    
-    else {
-        await ctx.reply('Извините, но вы не указали тему обращения. Давайте начнем сначала. Нажмите /start')
-    }
-})
+    // --- Обычное сообщение (не медиа-группа) ---
+    await forwardSingleMessage(ctx.msg, targetChatId, logsChatId, userId);
+    await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
+    chatsThemes[userId] = '0';
+});
 
 
 // ------------------ Установка команд в меню
