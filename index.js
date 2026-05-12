@@ -10,77 +10,28 @@ const mediaGroupBuffer = {};
 // Хранилище: message_id отправленного в чат правления сообщения -> userId отправителя
 const sentMessageToUser = {};
 
-const govChatIdArr = [-4145453133, -4168599904, -4187356699, -4101563856, -4108240137, -4118911246, -4136291809, -4753833428, -1001468988358_896, -1001468988358]; // Массив с айдишниками чатов правления для игнорирования в них некоторых функций, вроде start и перенапраления сообщений
+// Структура: хранение состояния диалога пользователя
+const userDialogs = {};
+
+const govChatIdArr = [-4145453133, -4168599904, -4187356699, -4101563856, -4108240137, -4118911246, -4136291809, -4753833428, -1001468988358_896, -1001468988358];
 
 const themesDatas = [
-    {
-        name: 'water',
-        buttonName: 'Вода',
-        targetChatId: -4145453133
-    },
-
-    {
-        name: 'electricity',
-        buttonName: 'Электричество',
-        targetChatId: -4168599904
-    },
-
-    {
-        name: 'roads',
-        buttonName: 'Дороги',
-        targetChatId: -4187356699
-    },
-
-    {
-        name: 'gas',
-        buttonName: 'Газ',
-        targetChatId: -4101563856
-    },
-
-    {
-        name: 'payment',
-        buttonName: 'Оплата взносов',
-        targetChatId: -4108240137
-    },
-
-    {
-        name: 'other',
-        buttonName: 'Другой вопрос',
-        targetChatId: -4118911246
-    },
-
-    {
-        name: 'riders',
-        buttonName: 'Попутчики',
-        targetChatId: -1001468988358_896
-    },
-
-    {
-        name: 'meeting',
-        buttonName: 'К собранию',
-        targetChatId: -4753833428
-    },
-
-    {
-        name: 'topresident',
-        buttonName: 'Председателю',
-        targetChatId: -4136291809
-    },
-
-    {
-        name: 'logs',
-        buttonName: '',
-        targetChatId: -1001801837649
-    }
-
+    { name: 'water', buttonName: 'Вода', targetChatId: -4145453133 },
+    { name: 'electricity', buttonName: 'Электричество', targetChatId: -4168599904 },
+    { name: 'roads', buttonName: 'Дороги', targetChatId: -4187356699 },
+    { name: 'gas', buttonName: 'Газ', targetChatId: -4101563856 },
+    { name: 'payment', buttonName: 'Оплата взносов', targetChatId: -4108240137 },
+    { name: 'other', buttonName: 'Другой вопрос', targetChatId: -4118911246 },
+    { name: 'riders', buttonName: 'Попутчики', targetChatId: -1001468988358_896 },
+    { name: 'meeting', buttonName: 'К собранию', targetChatId: -4753833428 },
+    { name: 'topresident', buttonName: 'Председателю', targetChatId: -4136291809 },
+    { name: 'logs', buttonName: '', targetChatId: -1001801837649 }
 ];
 
 const bot = new Bot(process.env.BOT_API_KEY);
-
 bot.use(hydrate());
 
-
-const themeKeyboard = new InlineKeyboard() // Вводим значения для клавиш клавиатур
+const themeKeyboard = new InlineKeyboard()
     .text('Вода', 'water')
     .text('Электричество', 'electricity').row()
     .text('Дороги', 'roads')
@@ -88,31 +39,29 @@ const themeKeyboard = new InlineKeyboard() // Вводим значения дл
     .text('Оплата взносов','payment')
     .text('Другой вопрос', 'other').row()
     .text('Председателю', 'topresident')
-    .text('К собранию', 'meeting').row()
-    // .text('Попутчики','riders');
-
-    // for (let i = 0; i < themesDatas.length; i++) {
-    //     if (i % 2 === 0) {
-    //         return .text(themesDatas[i].buttonName, themesDatas[i].name)
-    //     } else {
-    //         return .text(themesDatas[i].buttonName, themesDatas[i].name).row()
-    //     }
-    // }
+    .text('К собранию', 'meeting').row();
 
 const themeKeyboardBack = new InlineKeyboard()
-.text('⬅️  Вернуться к списку тем', 'back')
+    .text('⬅️  Вернуться к списку тем', 'back');
 
+const addOrSendKeyboard = new InlineKeyboard()
+    .text('➕ Добавить', 'add_more')
+    .text('✅ Отправить', 'send_appeal');
 
+// Клавиатура для этапа "добавить ещё" – теперь с кнопкой "Отправить" и возвратом к выбору тем
+const addMoreKeyboard = new InlineKeyboard()
+    .text('✅ Отправить', 'send_appeal')
+    .text('⬅️ Вернуться к выбору тем', 'back_to_theme');
+
+const backToThemeKeyboard = new InlineKeyboard()
+    .text('⬅️ Вернуться к выбору тем', 'back_to_theme');
 
 // --------------- Команда запуска приема обращения
-
 bot.command('start', async (ctx) => {
     let userChatId = ctx.update.message.chat.id;
-
     if (govChatIdArr.includes(userChatId)) {
         await ctx.reply('Извините, в данном чате функция /start недоступна');
-    } 
-    else {
+    } else {
         await ctx.reply('Здравствуйте! Я бот-секретарь правления СНТ "Ключи-4 восточные". Через меня ваше сообщение отправится сразу к ответственному лицу. \n \n Выберите, пожалуйста, тему обращения', {
             reply_markup: themeKeyboard
         });
@@ -120,291 +69,256 @@ bot.command('start', async (ctx) => {
 });
 
 // ----------------- Команда вызова кнопки со ссылкой
-
 bot.command('bot_link', async (ctx) => {
     const inlineKeyboard2 = new InlineKeyboard().url('Приступить', 'http://t.me/univer_appeal_bot?start=start');
-
     await ctx.reply('--\nВы можете отправить обращение в правление через электронного секретаря.\n \nПросто нажмите "Приступить", когда будете готовы.', {
         reply_markup: inlineKeyboard2
     });
 });
 
 // --------------------- Кнопки выбора тем
-
-bot.callbackQuery('water', async (ctx) => {
-    await ctx.callbackQuery.message.editText('✅  Вы выбрали тему обращения "Вода".\n \nПожалуйста, отправьте обращение следующим сообщением. Начните его с вашей фамилии, имени, отчества и номера участка.\n \n❗️  Важно: обращение должно быть отправлено одним сообщением. Допускается прикреплять фото и видео.', {
-        reply_markup: themeKeyboardBack
+async function startDialog(ctx, themeName, themeButtonName) {
+    const userId = ctx.callbackQuery.from.id;
+    if (userDialogs[userId]) delete userDialogs[userId];
+    userDialogs[userId] = {
+        step: 'waiting_plot_number',
+        theme: themeName,
+        plotNumber: null,
+        name: null,
+        messages: []   // только сообщения с описанием проблемы
+    };
+    await ctx.callbackQuery.message.editText(`✅ Вы выбрали тему обращения "${themeButtonName}".\n\nНапишите, пожалуйста, номер вашего участка в посёлке.`, {
+        reply_markup: backToThemeKeyboard
     });
     await ctx.answerCallbackQuery();
-    let id = ctx.update.callback_query.from.id
-    chatsThemes[ctx.update.callback_query.from.id] = 'water';
-});
+}
 
-bot.callbackQuery('electricity', async (ctx) => {
-    await ctx.callbackQuery.message.editText('✅  Вы выбрали тему обращения "Электричество".\n \nПожалуйста, отправьте обращение следующим сообщением. Начните его с вашей фамилии, имени, отчества и номера участка.\n \n❗️  Важно: обращение должно быть отправлено одним сообщением. Допускается прикреплять фото и видео', {
-        reply_markup: themeKeyboardBack
-    });
-    await ctx.answerCallbackQuery();
-    chatsThemes[ctx.update.callback_query.from.id] = 'electricity';
-});
+bot.callbackQuery('water', async (ctx) => startDialog(ctx, 'water', 'Вода'));
+bot.callbackQuery('electricity', async (ctx) => startDialog(ctx, 'electricity', 'Электричество'));
+bot.callbackQuery('roads', async (ctx) => startDialog(ctx, 'roads', 'Дороги'));
+bot.callbackQuery('gas', async (ctx) => startDialog(ctx, 'gas', 'Газ'));
+bot.callbackQuery('payment', async (ctx) => startDialog(ctx, 'payment', 'Оплата взносов'));
+bot.callbackQuery('other', async (ctx) => startDialog(ctx, 'other', 'Другой вопрос'));
+bot.callbackQuery('topresident', async (ctx) => startDialog(ctx, 'topresident', 'Председателю'));
+bot.callbackQuery('meeting', async (ctx) => startDialog(ctx, 'meeting', 'К собранию'));
+bot.callbackQuery('riders', async (ctx) => startDialog(ctx, 'riders', 'Попутчики'));
 
-bot.callbackQuery('roads', async (ctx) => {
-    await ctx.callbackQuery.message.editText('✅  Вы выбрали тему обращения "Дороги".\n \nПожалуйста, отправьте обращение следующим сообщением. Начните его с вашей фамилии, имени, отчества и номера участка.\n \n❗️  Важно: обращение должно быть отправлено одним сообщением. Допускается прикреплять фото и видео.', {
-        reply_markup: themeKeyboardBack
-    });
-    await ctx.answerCallbackQuery();
-    chatsThemes[ctx.update.callback_query.from.id] = 'roads';
-});
-
-bot.callbackQuery('gas', async (ctx) => {
-    await ctx.callbackQuery.message.editText('✅  Вы выбрали тему обращения "Газ".\n \nПожалуйста, отправьте обращение следующим сообщением. Начните его с вашей фамилии, имени, отчества и номера участка.\n \n❗️  Важно: обращение должно быть отправлено одним сообщением. Допускается прикреплять фото и видео.', {
-        reply_markup: themeKeyboardBack
-    });
-    await ctx.answerCallbackQuery();
-    chatsThemes[ctx.update.callback_query.from.id] = 'gas';
-});
-
-bot.callbackQuery('payment', async (ctx) => {
-    await ctx.callbackQuery.message.editText('✅  Вы выбрали тему обращения "Оплата взносов".\n \nПожалуйста, отправьте обращение следующим сообщением. Начните его с вашей фамилии, имени, отчества и номера участка.\n \n❗️  Важно: обращение должно быть отправлено одним сообщением. Допускается прикреплять фото и видео.', {
-        reply_markup: themeKeyboardBack
-    });
-    await ctx.answerCallbackQuery();
-    chatsThemes[ctx.update.callback_query.from.id] = 'payment';
-});
-
-bot.callbackQuery('other', async (ctx) => {
-    await ctx.callbackQuery.message.editText('✅  Вы выбрали тему обращения "Другой вопрос".\n \nПожалуйста, отправьте обращение следующим сообщением. Начните его с вашей фамилии, имени, отчества и номера участка.\n \n❗️  Важно: обращение должно быть отправлено одним сообщением. Допускается прикреплять фото и видео.', {
-        reply_markup: themeKeyboardBack
-    });
-    await ctx.answerCallbackQuery();
-    chatsThemes[ctx.update.callback_query.from.id] = 'other';
-});
-
-bot.callbackQuery('topresident', async (ctx) => {
-    await ctx.callbackQuery.message.editText('✅  Вы выбрали тему обращения "Председателю".\n \nПожалуйста, отправьте обращение следующим сообщением. Начните его с вашей фамилии, имени, отчества и номера участка.\n \n❗️  Важно: обращение должно быть отправлено одним сообщением. Допускается прикреплять фото и видео.', {
-        reply_markup: themeKeyboardBack
-    });
-    await ctx.answerCallbackQuery();
-    chatsThemes[ctx.update.callback_query.from.id] = 'topresident';
-});
-
-bot.callbackQuery('meeting', async (ctx) => {
-    await ctx.callbackQuery.message.editText('✅  Вы выбрали тему обращения "К собранию".\n \nПожалуйста, отправьте обращение следующим сообщением. Начните его с вашей фамилии, имени, отчества и номера участка.\n \n❗️  Важно: обращение должно быть отправлено одним сообщением. Допускается прикреплять фото и видео.', {
-        reply_markup: themeKeyboardBack
-    });
-    await ctx.answerCallbackQuery();
-    chatsThemes[ctx.update.callback_query.from.id] = 'meeting';
-});
-
-bot.callbackQuery('riders', async (ctx) => {
-    await ctx.callbackQuery.message.editText('✅  Вы выбрали тему обращения "Попутчики".\n \nПожалуйста, отправьте обращение следующим сообщением по форме:\n \n1. Направление (откуда и куда)\n \n2. Количество человек\n \n3. Время желаемого отъезда\n \n❗️  Важно: обращение должно быть отправлено одним сообщением.', {
-        reply_markup: themeKeyboardBack
-    });
-    await ctx.answerCallbackQuery();
-    chatsThemes[ctx.update.callback_query.from.id] = 'riders';
-});
-
-// ---------------------- Кнопка назад
-
-bot.callbackQuery('back', async (ctx) => {
-    chatsThemes[ctx.update.callback_query.from.id] = '0';
+// ---------------------- Кнопка возврата к выбору темы (из диалога)
+bot.callbackQuery('back_to_theme', async (ctx) => {
+    const userId = ctx.callbackQuery.from.id;
+    if (userDialogs[userId]) delete userDialogs[userId];
     await ctx.callbackQuery.message.editText('Выберите, пожалуйста, тему обращения.', {
         reply_markup: themeKeyboard
     });
     await ctx.answerCallbackQuery();
 });
 
-// -------------------  Пересылаем сообщения от пользователя
+// Кнопка "Добавить" — остаёмся в режиме сбора сообщений, но предлагаем клавиатуру с "Отправить"
+bot.callbackQuery('add_more', async (ctx) => {
+    const userId = ctx.callbackQuery.from.id;
+    const dialog = userDialogs[userId];
+    if (!dialog || dialog.step !== 'waiting_issue') {
+        await ctx.answerCallbackQuery('Нет активного обращения. Начните заново через /start');
+        return;
+    }
+    await ctx.callbackQuery.message.editText('Хорошо, напишите ещё одно сообщение или нажмите "Отправить", если больше сообщений не требуется.', {
+        reply_markup: addMoreKeyboard   // новая клавиатура
+    });
+    await ctx.answerCallbackQuery();
+});
 
+// Кнопка "Отправить" — финальная отправка всех накопленных данных
+bot.callbackQuery('send_appeal', async (ctx) => {
+    const userId = ctx.callbackQuery.from.id;
+    const dialog = userDialogs[userId];
+    if (!dialog || dialog.step !== 'waiting_issue') {
+        await ctx.answerCallbackQuery('Нет активного обращения. Начните заново через /start');
+        return;
+    }
+
+    const targetChatId = themesDatas.find(t => t.name === dialog.theme)?.targetChatId;
+    const logsChatId = -1001801837649;
+    if (!targetChatId) {
+        await ctx.reply('Ошибка: тема не распознана. Начните заново.');
+        delete userDialogs[userId];
+        return;
+    }
+
+    // Функция пересылки одиночного сообщения
+    const forwardSingle = async (msgObj, chatId, uid) => {
+        try {
+            const sent = await ctx.api.forwardMessage(chatId, msgObj.chat.id, msgObj.message_id);
+            sentMessageToUser[sent.message_id] = uid;
+        } catch (e) { console.error('Ошибка forward:', e); }
+    };
+
+    // Функция отправки альбома
+    const sendGroup = async (groupMsgs, chatId, uid) => {
+        try {
+            const inputMediaArray = [];
+            for (let i = 0; i < groupMsgs.length; i++) {
+                const msg = groupMsgs[i];
+                let type = null;
+                let fileId = null;
+                if (msg.photo) {
+                    fileId = msg.photo[msg.photo.length-1].file_id;
+                    type = 'photo';
+                } else if (msg.video) {
+                    fileId = msg.video.file_id;
+                    type = 'video';
+                } else continue;
+                const media = { type, media: fileId };
+                if (i === 0 && msg.caption) {
+                    media.caption = msg.caption;
+                    if (msg.caption_entities) media.caption_entities = msg.caption_entities;
+                }
+                inputMediaArray.push(media);
+            }
+            if (inputMediaArray.length === 0) return;
+            const sent = await ctx.api.sendMediaGroup(chatId, inputMediaArray);
+            sent.forEach(msg => { sentMessageToUser[msg.message_id] = uid; });
+        } catch (e) { console.error('Ошибка sendMediaGroup:', e); }
+    };
+
+    // Функция отправки текстового сообщения
+    const sendText = async (text, chatId, uid) => {
+        try {
+            const sent = await ctx.api.sendMessage(chatId, text);
+            sentMessageToUser[sent.message_id] = uid;
+        } catch (e) { console.error('Ошибка отправки текста:', e); }
+    };
+
+    // Отправляем вступительное сообщение
+    const introText = `В правление обращается ${dialog.name} с участка ${dialog.plotNumber}`;
+    await sendText(introText, targetChatId, userId);
+    await sendText(introText, logsChatId, userId);
+
+    // Пересылаем только сообщения с проблемой
+    for (const item of dialog.messages) {
+        if (Array.isArray(item)) {
+            await sendGroup(item, targetChatId, userId);
+            await sendGroup(item, logsChatId, userId);
+        } else {
+            await forwardSingle(item, targetChatId, userId);
+            await forwardSingle(item, logsChatId, userId);
+        }
+    }
+
+    await ctx.callbackQuery.message.editText('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
+    await ctx.answerCallbackQuery();
+    delete userDialogs[userId];
+});
+
+// ---------------------- Кнопка "назад" (старая, для совместимости)
+bot.callbackQuery('back', async (ctx) => {
+    const userId = ctx.callbackQuery.from.id;
+    if (userDialogs[userId]) delete userDialogs[userId];
+    await ctx.callbackQuery.message.editText('Выберите, пожалуйста, тему обращения.', {
+        reply_markup: themeKeyboard
+    });
+    await ctx.answerCallbackQuery();
+});
+
+// ------------------- Обработка сообщений от пользователя
 bot.on('message', async (ctx) => {
-
-    let userChatId = ctx.update.message.chat.id;
+    const userChatId = ctx.update.message.chat.id;
     const userId = ctx.update.message.from.id;
-    const mediaGroupId = ctx.msg.media_group_id;
 
-    // Функция для получения целевого чата по теме
-    const getTargetChatId = (theme) => {
-        const themeData = themesDatas.find(t => t.name === theme);
-        return themeData ? themeData.targetChatId : null;
-    };
-
-    // Функция пересылки одного сообщения (не группа) в целевой чат и лог-канал
-    const forwardSingleMessage = async (message, targetChatId, logsChatId, originalUserId) => {
-        try {
-            // Пересылаем в чат правления и запоминаем ID отправленного сообщения
-            const sentInTarget = await ctx.api.forwardMessage(targetChatId, message.chat.id, message.message_id);
-            sentMessageToUser[sentInTarget.message_id] = originalUserId;
-            
-            // Пересылаем в лог-канал
-            const sentInLogs = await ctx.api.forwardMessage(logsChatId, message.chat.id, message.message_id);
-            sentMessageToUser[sentInLogs.message_id] = originalUserId;
-        } catch (e) {
-            console.error('Ошибка пересылки:', e);
-        }
-    };
-
-    // Функция отправки альбома (медиа-группы) в целевой чат и лог-канал
-    const sendMediaGroupToChats = async (mediaGroupArray, targetChatId, logsChatId, originalUserId) => {
-        try {
-            // Отправляем в целевой чат и запоминаем все message_id
-            const sentTarget = await ctx.api.sendMediaGroup(targetChatId, mediaGroupArray);
-            for (const msg of sentTarget) {
-                sentMessageToUser[msg.message_id] = originalUserId;
-            }
-            
-            // Отправляем в лог-канал
-            const sentLogs = await ctx.api.sendMediaGroup(logsChatId, mediaGroupArray);
-            for (const msg of sentLogs) {
-                sentMessageToUser[msg.message_id] = originalUserId;
-            }
-        } catch (e) {
-            console.error('Ошибка отправки медиа-группы:', e);
-        }
-    };
-
-    // --- Обработка ответов из чатов правления (универсальная логика) ---
+    // --- Ответы из чатов правления ---
     if (govChatIdArr.includes(userChatId) && ctx.update.message.reply_to_message) {
         const repliedMsgId = ctx.update.message.reply_to_message.message_id;
         const originalUserId = sentMessageToUser[repliedMsgId];
-        
         if (originalUserId) {
-            // Отправляем пользователю уведомление
             await bot.api.sendMessage(originalUserId, 'Доброго времени суток. \n \nВам отправлен официальный ответ на ранее оставленное обращение.\n \nМожете ознакомиться с ним ниже');
-            // Пересылаем ответное сообщение пользователю
             await ctx.forwardMessage(originalUserId);
         }
         return;
     }
+    if (govChatIdArr.includes(userChatId)) return;
 
-    // Если сообщение из чата правления, но не ответ на обращение – игнорируем
-    if (govChatIdArr.includes(userChatId)) {
-        return;
-    }
-
-    const currentTheme = chatsThemes[userId];
-
-    if (!currentTheme || currentTheme === '0') {
+    const dialog = userDialogs[userId];
+    if (!dialog) {
         await ctx.reply('Извините, но вы не указали тему обращения. Давайте начнем сначала. Нажмите /start');
         return;
     }
 
-    const targetChatId = getTargetChatId(currentTheme);
-    const logsChatId = -1001801837649; // канал с логами
-
-    if (!targetChatId) {
-        console.error(`Не найден целевой чат для темы ${currentTheme}`);
-        await ctx.reply('Произошла ошибка: тема не распознана. Пожалуйста, начните заново с /start');
-        chatsThemes[userId] = '0';
-        return;
-    }
-
-    // --- Обработка медиа-групп (альбомов) с динамическим ожиданием ---
-    if (mediaGroupId) {
-        const bufferKey = `${mediaGroupId}_${userId}`;
-
-        if (!mediaGroupBuffer[bufferKey]) {
-            mediaGroupBuffer[bufferKey] = {
-                messages: [],
-                theme: currentTheme,
-                timeout: null
-            };
+    // ---- Вспомогательная функция для добавления сообщения в диалог (только для проблемы) ----
+    const addToDialogIssue = async (msgObj) => {
+        const mediaGroupId = msgObj.media_group_id;
+        if (!mediaGroupId) {
+            dialog.messages.push(msgObj);
+            await ctx.reply('Отправить обращение правлению или хотите добавить ещё одно сообщение?', { reply_markup: addOrSendKeyboard });
+            return;
         }
-
-        const buffer = mediaGroupBuffer[bufferKey];
-        buffer.messages.push(ctx.msg);
-
-        if (buffer.timeout) clearTimeout(buffer.timeout);
-
-        // Динамическое ожидание: после последнего сообщения ждём 2 секунды
-        buffer.timeout = setTimeout(async () => {
-            const messages = buffer.messages;
-            // Сортируем сообщения по порядку (Telegram не гарантирует, но обычно приходят в правильном порядке)
-            messages.sort((a, b) => a.message_id - b.message_id);
-
-            // Преобразуем сообщения в формат InputMedia для sendMediaGroup
-            const inputMediaArray = [];
-            let caption = null;
-            let captionEntities = null;
-
-            for (let i = 0; i < messages.length; i++) {
-                const msg = messages[i];
-                let mediaType = null;
-                let fileId = null;
-
-                // Определяем тип медиа и получаем file_id
-                if (msg.photo) {
-                    const photo = msg.photo[msg.photo.length - 1];
-                    fileId = photo.file_id;
-                    mediaType = 'photo';
-                } else if (msg.video) {
-                    fileId = msg.video.file_id;
-                    mediaType = 'video';
-                } else {
-                    // Неподдерживаемый тип – пересылаем как обычное сообщение
-                    await forwardSingleMessage(msg, targetChatId, logsChatId, userId);
-                    continue;
-                }
-
-                if (i === 0) {
-                    caption = msg.caption || '';
-                    captionEntities = msg.caption_entities;
-                }
-
-                let inputMedia;
-                if (mediaType === 'photo') {
-                    inputMedia = { type: 'photo', media: fileId };
-                } else {
-                    inputMedia = { type: 'video', media: fileId };
-                }
-
-                if (i === 0 && caption) {
-                    inputMedia.caption = caption;
-                    if (captionEntities) {
-                        inputMedia.caption_entities = captionEntities;
-                    }
-                }
-
-                inputMediaArray.push(inputMedia);
-            }
-
-            if (inputMediaArray.length > 0) {
-                await sendMediaGroupToChats(inputMediaArray, targetChatId, logsChatId, userId);
-            }
-
-            await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
-            chatsThemes[userId] = '0';
+        const bufferKey = `${mediaGroupId}_${userId}`;
+        if (!mediaGroupBuffer[bufferKey]) {
+            mediaGroupBuffer[bufferKey] = { messages: [], timer: null };
+        }
+        const buf = mediaGroupBuffer[bufferKey];
+        buf.messages.push(msgObj);
+        if (buf.timer) clearTimeout(buf.timer);
+        buf.timer = setTimeout(() => {
+            buf.messages.sort((a,b) => a.message_id - b.message_id);
+            dialog.messages.push(buf.messages);
             delete mediaGroupBuffer[bufferKey];
+            ctx.reply('Отправить обращение правлению или хотите добавить ещё одно сообщение?', { reply_markup: addOrSendKeyboard }).catch(console.error);
         }, 2000);
+    };
 
+    // Этап 1: номер участка
+    if (dialog.step === 'waiting_plot_number') {
+        const plotNumber = ctx.update.message.text;
+        if (!plotNumber) {
+            await ctx.reply('Пожалуйста, отправьте номер участка текстовым сообщением.', { reply_markup: backToThemeKeyboard });
+            return;
+        }
+        dialog.plotNumber = plotNumber;
+        dialog.step = 'waiting_name';
+        await ctx.reply('Представьтесь, пожалуйста (как к вам можно обращаться?).', { reply_markup: backToThemeKeyboard });
         return;
     }
 
-    // --- Обычное сообщение (не медиа-группа) ---
-    await forwardSingleMessage(ctx.msg, targetChatId, logsChatId, userId);
-    await ctx.reply('Ваше обращение перенаправлено ответственному лицу.\n \nСпасибо, что доверили это мне 😊');
-    chatsThemes[userId] = '0';
+    // Этап 2: имя
+    if (dialog.step === 'waiting_name') {
+        const name = ctx.update.message.text;
+        if (!name) {
+            await ctx.reply('Пожалуйста, напишите ваше имя текстовым сообщением.', { reply_markup: backToThemeKeyboard });
+            return;
+        }
+        dialog.name = name;
+        dialog.step = 'waiting_issue';
+        await ctx.reply('Пожалуйста, опишите проблему или вопрос. Допускается прикреплять фото, видео, геопозицию и файлы.', {
+            reply_markup: backToThemeKeyboard
+        });
+        return;
+    }
+
+    // Этап 3: сбор сообщений обращения
+    if (dialog.step === 'waiting_issue') {
+        await addToDialogIssue(ctx.msg);
+        return;
+    }
+
+    await ctx.reply('Что-то пошло не так. Попробуйте начать заново через /start');
 });
 
-
 // ------------------ Установка команд в меню
+(async () => {
+    try {
+        await bot.api.setMyCommands([
+            { command: 'start', description: 'Подать обращение в правление' }
+        ]);
+        console.log('Команды бота установлены');
+    } catch (err) {
+        console.error('Не удалось установить команды (бот продолжит работу):', err.message);
+    }
+})();
 
-bot.api.setMyCommands([
-
-    {
-        command: 'start',
-        description: 'Подать обращение в правление'
-    },
-
-]);
-
-
-// ------------------  Перехват ошибок
-
+// ------------------ Перехват ошибок
 bot.catch((err) => {
     const ctx = err.ctx;
-    console.error(`Error while landling update ${ctx.update.update_id}:`);
+    console.error(`Error while handling update ${ctx.update.update_id}:`);
     const e = err.error;
-
     if (e instanceof GrammyError) {
         console.log("Error in request:", e.description);
     } else if (e instanceof HttpError) {
@@ -412,7 +326,9 @@ bot.catch((err) => {
     } else {
         console.log("Unknown error:", e);
     }
-})
+});
 
-
-bot.start();
+bot.start().catch((err) => {
+    console.error('Бот не смог подключиться к Telegram API:', err.message);
+    process.exitCode = 1;
+});
